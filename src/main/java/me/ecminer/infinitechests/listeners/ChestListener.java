@@ -18,7 +18,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.world.WorldSaveEvent;
 
 import java.util.Arrays;
@@ -26,7 +28,6 @@ import java.util.List;
 
 public class ChestListener implements Listener {
 
-    private List<Material> notAllowed = Arrays.asList(Material.SIGN);
     private final BlockFace[] blockFaces = new BlockFace[]{BlockFace.NORTH, BlockFace.SOUTH, BlockFace.WEST, BlockFace.EAST};
     private final byte[] requiredData = new byte[]{2, 3, 4, 5};
     private InfiniteChests plugin;
@@ -42,7 +43,6 @@ public class ChestListener implements Listener {
             if (evt.getLine(0).equals("[SuperChest]") && evt.getLine(1).isEmpty() && evt.getLine(2).isEmpty() && evt.getLine(3).isEmpty()) {
                 for (int i = 0; i < blockFaces.length; i++) {
                     Block relative = evt.getBlock().getRelative(blockFaces[i].getOppositeFace());
-                    System.out.println(relative.getType());
                     if (isSuperChest(relative) || plugin.getChestManager().isChest(relative)) {
                         evt.setCancelled(true);
                         evt.getPlayer().sendMessage(ChatColor.RED + "This chest is already a SuperChest!");
@@ -63,19 +63,15 @@ public class ChestListener implements Listener {
         if (!evt.isCancelled()) {
             if (evt.getAction() == Action.RIGHT_CLICK_BLOCK
                     && evt.getClickedBlock().getType() == Material.CHEST) {
+                if (evt.getPlayer().isSneaking() && evt.getItem() != null)
+                    return;
                 if (plugin.getChestManager().isChest(evt.getClickedBlock())) {
-                    if (evt.getItem() != null && notAllowed.contains(evt.getItem().getType())) {
-                        return;
-                    }
                     Chest chest = plugin.getChestManager().getChest(
                             evt.getClickedBlock());
                     evt.setCancelled(true);
                     plugin.getChestManager().setOpenPage(evt.getPlayer(), chest,
                             chest.openPage(evt.getPlayer(), 0));
                 } else if (isSuperChest(evt.getClickedBlock())) {
-                    if (evt.getItem() != null && notAllowed.contains(evt.getItem().getType())) {
-                        return;
-                    }
                     evt.setCancelled(true);
                     final Chest chest = plugin.getChestManager().placeChest(evt.getClickedBlock());
                     final String playerName = evt.getPlayer().getName();
@@ -160,6 +156,22 @@ public class ChestListener implements Listener {
                     plugin.getChestManager().chestClosed(player);
                 }
             }
+        }
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent evt) {
+        Player player = evt.getPlayer();
+        if (plugin.getChestManager().hasOpenedChest(player)) {
+            plugin.getChestManager().chestClosed(player);
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent evt) {
+        Player player = (Player) evt.getPlayer();
+        if (plugin.getChestManager().hasOpenedChest(player)) {
+            plugin.getChestManager().chestClosed(player);
         }
     }
 

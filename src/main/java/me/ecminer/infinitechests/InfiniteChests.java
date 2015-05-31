@@ -26,6 +26,11 @@ public class InfiniteChests extends JavaPlugin {
     }
 
     public void onDisable() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (chestManager.hasOpenedChest(player)) {
+                player.closeInventory();
+            }
+        }
         for (World world : Bukkit.getWorlds()) {
             for (Chest chest : chestManager.getChests(world)) {
                 if (chest.isEdited()) {

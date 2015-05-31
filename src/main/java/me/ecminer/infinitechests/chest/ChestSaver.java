@@ -27,7 +27,10 @@ public class ChestSaver {
         this.plugin = plugin;
         try {
             Class.forName("org.sqlite.JDBC");
-            this.c = DriverManager.getConnection("jdbc:sqlite:" + new File(plugin.getDataFolder(), "chests.sqlite").getAbsolutePath());
+            File file = new File(plugin.getDataFolder(), "chests.sqlite");
+            if (!file.getParentFile().exists())
+                file.getParentFile().mkdirs();
+            this.c = DriverManager.getConnection("jdbc:sqlite:" + file.getAbsolutePath());
             Statement st = c.createStatement();
             st.execute("create table if not exists chests(world varchar(255), location varchar(255), data LONGTEXT);");
             st.close();
