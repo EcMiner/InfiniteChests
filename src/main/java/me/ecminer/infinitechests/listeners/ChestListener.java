@@ -21,8 +21,12 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.world.WorldSaveEvent;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class ChestListener implements Listener {
 
+    private List<Material> notAllowed = Arrays.asList(Material.SIGN);
     private final BlockFace[] blockFaces = new BlockFace[]{BlockFace.NORTH, BlockFace.SOUTH, BlockFace.WEST, BlockFace.EAST};
     private final byte[] requiredData = new byte[]{2, 3, 4, 5};
     private InfiniteChests plugin;
@@ -30,19 +34,6 @@ public class ChestListener implements Listener {
     public ChestListener(InfiniteChests plugin) {
         this.plugin = plugin;
     }
-
-    /**
-     * @EventHandler(priority = EventPriority.MONITOR)
-     * public void onBlockPlace(BlockPlaceEvent evt) {
-     * if (!evt.isCancelled()) {
-     * if (evt.getBlockPlaced().getType() == Material.CHEST) {
-     * plugin.getChestManager().placeChest(evt.getBlockPlaced());
-     * evt.getPlayer()
-     * .sendMessage(ChatColor.GREEN + "Placed a chest!");
-     * }
-     * }
-     * }*
-     */
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onSignChange(SignChangeEvent evt) {
@@ -73,13 +64,18 @@ public class ChestListener implements Listener {
             if (evt.getAction() == Action.RIGHT_CLICK_BLOCK
                     && evt.getClickedBlock().getType() == Material.CHEST) {
                 if (plugin.getChestManager().isChest(evt.getClickedBlock())) {
+                    if (evt.getItem() != null && notAllowed.contains(evt.getItem().getType())) {
+                        return;
+                    }
                     Chest chest = plugin.getChestManager().getChest(
                             evt.getClickedBlock());
                     evt.setCancelled(true);
                     plugin.getChestManager().setOpenPage(evt.getPlayer(), chest,
                             chest.openPage(evt.getPlayer(), 0));
                 } else if (isSuperChest(evt.getClickedBlock())) {
-                    System.out.println("Is Super Chest!");
+                    if (evt.getItem() != null && notAllowed.contains(evt.getItem().getType())) {
+                        return;
+                    }
                     evt.setCancelled(true);
                     final Chest chest = plugin.getChestManager().placeChest(evt.getClickedBlock());
                     final String playerName = evt.getPlayer().getName();
