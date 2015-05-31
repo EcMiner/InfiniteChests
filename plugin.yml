@@ -1,0 +1,5 @@
+name: InfiniteChests
+main: me.ecminer.infinitechests.InfiniteChests
+version: 1
+commands:
+  test:
