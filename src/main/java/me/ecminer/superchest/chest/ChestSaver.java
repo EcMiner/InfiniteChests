@@ -1,12 +1,12 @@
-package me.ecminer.infinitechests.chest;
+package me.ecminer.superchest.chest;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import me.ecminer.infinitechests.InfiniteChests;
-import me.ecminer.infinitechests.utilities.ItemUtils;
+import me.ecminer.superchest.SuperChest;
+import me.ecminer.superchest.utilities.ItemUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.block.Block;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
@@ -18,12 +18,11 @@ import java.sql.Statement;
 
 public class ChestSaver {
 
-    private final InfiniteChests plugin;
+    private final SuperChest plugin;
     private Connection c = null;
-    private Gson gson = new GsonBuilder().create();
     private JsonParser parser = new JsonParser();
 
-    public ChestSaver(InfiniteChests plugin) {
+    public ChestSaver(SuperChest plugin) {
         this.plugin = plugin;
         try {
             Class.forName("org.sqlite.JDBC");
@@ -46,15 +45,18 @@ public class ChestSaver {
                 String worldName = chest.getWorldName();
                 Vector location = chest.getLocationVector();
                 StringBuilder invData = new StringBuilder();
-                System.out.println(chest.getInventory().getAmountOfChests());
                 for (ChestPage page : chest.getInventory().getPages()) {
                     invData.append("[");
+                    int j = 0;
                     for (int i = 9; i < page.getInventory().getSize(); i++) {
                         if (page.getInventory().getItem(i) != null) {
-                            JsonObject json = new JsonObject();
+                            if (j != 0) {
+                                invData.append(";;");
+                            }
+                            JsonObject json = ItemUtils.serializeItemStack(page.getInventory().getItem(i));
                             json.addProperty("slot", i);
-                            json.addProperty("item", ItemUtils.serializeItemStack(page.getInventory().getItem(i)));
                             invData.append(json.toString());
+                            ++j;
                         }
                     }
                     invData.append("];");
@@ -84,12 +86,16 @@ public class ChestSaver {
         StringBuilder invData = new StringBuilder();
         for (ChestPage page : chest.getInventory().getPages()) {
             invData.append("[");
+            int j = 0;
             for (int i = 9; i < page.getInventory().getSize(); i++) {
                 if (page.getInventory().getItem(i) != null) {
-                    JsonObject json = new JsonObject();
+                    if (j != 0) {
+                        invData.append(";;");
+                    }
+                    JsonObject json = ItemUtils.serializeItemStack(page.getInventory().getItem(i));
                     json.addProperty("slot", i);
-                    json.addProperty("item", ItemUtils.serializeItemStack(page.getInventory().getItem(i)));
                     invData.append(json.toString());
+                    ++j;
                 }
             }
             invData.append("];");
@@ -126,22 +132,29 @@ public class ChestSaver {
                         String data = set.getString("data");
                         int i = 0;
                         for (String page : data.split("];")) {
-                            System.out.println("Page: " + page);
-                            ChestPage cPage = null;
-                            if (i != 0) {
-                                cPage = chest.getInventory().addPage(new ChestPage("Chest"));
-                            } else {
-                                cPage = chest.getInventory().getPage(0);
+                            if (page.length() > 1) {
+                                ChestPage cPage = null;
+                                if (i != 0) {
+                                    cPage = chest.getInventory().addPage(new ChestPage("Chest"));
+                                } else {
+                                    cPage = chest.getInventory().getPage(0);
+                                }
+                                String substring = page.substring(1);
+                                if (substring.contains(";;")) {
+                                    for (String itemSerialized : substring.split(";;")) {
+                                        JsonObject json = (JsonObject) parser.parse(itemSerialized);
+                                        int slot = json.get("slot").getAsInt();
+                                        ItemStack item = ItemUtils.deserializeItemStack(itemSerialized);
+                                        cPage.getInventory().setItem(slot, item);
+                                    }
+                                } else {
+                                    JsonObject json = (JsonObject) parser.parse(substring);
+                                    int slot = json.get("slot").getAsInt();
+                                    ItemStack item = ItemUtils.deserializeItemStack(substring);
+                                    cPage.getInventory().setItem(slot, item);
+                                }
+                                i++;
                             }
-                            System.out.println("Page null? " + (cPage == null));
-                            System.out.println("Page replaced: " + page.substring(1));
-                            for (String itemSerialized : page.substring(1).split(";")) {
-                                JsonObject json = (JsonObject) parser.parse(itemSerialized);
-                                int slot = json.get("slot").getAsInt();
-                                ItemStack item = ItemUtils.deserializeItemStack(json.get("item").getAsString());
-                                cPage.getInventory().setItem(slot, item);
-                            }
-                            i++;
                         }
                     }
                     st.close();
@@ -150,10 +163,37 @@ public class ChestSaver {
                 }
                 if (onFinish != null) {
                     try {
-                        onFinish.run();
+                        Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, onFinish);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
+                }
+            }
+        });
+    }
+
+    public void destroyChest(Chest chest) {
+        destroyChest(chest.getWorldName(), chest.getLocationVector());
+    }
+
+    public void destroyChest(Location loc) {
+        destroyChest(loc.getBlock());
+    }
+
+    public void destroyChest(Block block) {
+        destroyChest(block.getWorld().getName(), new Vector(block.getX(), block.getY(), block.getZ()));
+    }
+
+    public void destroyChest(final String worldName, final Vector location) {
+        runAsync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Statement st = c.createStatement();
+                    st.execute("DELETE FROM chests WHERE world='" + worldName + "' and location='" + location.toString() + "'");
+                    st.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
         });

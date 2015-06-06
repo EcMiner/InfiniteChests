@@ -1,4 +1,4 @@
-package me.ecminer.infinitechests.chest;
+package me.ecminer.superchest.chest;
 
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -18,7 +18,7 @@ public class ChestInventory {
 
     public ChestInventory(Chest chest) {
         this.chest = chest;
-        addPage(new ChestPage("Chest"));
+        addPage(new ChestPage("Chest Inventory"));
     }
 
     public Chest getChest() {
@@ -54,6 +54,8 @@ public class ChestInventory {
                     viewer.openInventory(next.getInventory());
                     chest.plugin.getChestManager().setOpenPage(
                             (Player) viewer, chest, next);
+                } else {
+                    viewer.closeInventory();
                 }
             }
 

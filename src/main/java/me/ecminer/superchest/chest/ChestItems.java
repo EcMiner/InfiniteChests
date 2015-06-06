@@ -1,6 +1,6 @@
-package me.ecminer.infinitechests.chest;
+package me.ecminer.superchest.chest;
 
-import me.ecminer.infinitechests.utilities.ItemUtils;
+import me.ecminer.superchest.utilities.ItemUtils;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;

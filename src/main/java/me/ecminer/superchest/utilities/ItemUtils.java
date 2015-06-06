@@ -1,4 +1,4 @@
-package me.ecminer.infinitechests.utilities;
+package me.ecminer.superchest.utilities;
 
 import com.google.gson.*;
 import org.bukkit.Material;
@@ -47,7 +47,7 @@ public class ItemUtils {
 	private static Gson gson = new GsonBuilder().create();
 	private static JsonParser parser = new JsonParser();
 
-	public static String serializeItemStack(ItemStack item) {
+	public static JsonObject serializeItemStack(ItemStack item) {
 		JsonObject json = new JsonObject();
 		json.addProperty("type", item.getType().name());
 		json.addProperty("data", item.getData().getData());
@@ -72,7 +72,7 @@ public class ItemUtils {
 
 			json.add("itemmeta", itemmeta);
 		}
-		return json.toString();
+		return json;
 	}
 
 	public static ItemStack deserializeItemStack(String string) {

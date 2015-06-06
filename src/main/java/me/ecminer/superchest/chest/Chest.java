@@ -1,21 +1,20 @@
-package me.ecminer.infinitechests.chest;
+package me.ecminer.superchest.chest;
 
-import me.ecminer.infinitechests.InfiniteChests;
+import me.ecminer.superchest.SuperChest;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 public class Chest {
 
-    protected final InfiniteChests plugin;
+    protected final SuperChest plugin;
     private final String worldName;
     private final Vector locationVector;
     private ChestInventory inventory = new ChestInventory(this);
     private boolean isEdited = false;
 
-    public Chest(Location location, InfiniteChests plugin) {
+    protected Chest(Location location, SuperChest plugin) {
         this.worldName = location.getWorld().getName();
         this.locationVector = new Vector(location.getBlockX(), location.getBlockY(), location.getBlockZ());
         this.plugin = plugin;
@@ -72,18 +71,4 @@ public class Chest {
         player.openInventory(page.getInventory());
         return page;
     }
-
-    public void destroy() {
-        for (ChestPage page : inventory.getPages()) {
-            for (HumanEntity human : (HumanEntity[]) page
-                    .getInventory()
-                    .getViewers()
-                    .toArray(
-                            new HumanEntity[page.getInventory().getViewers()
-                                    .size()])) {
-                human.closeInventory();
-            }
-        }
-    }
-
 }

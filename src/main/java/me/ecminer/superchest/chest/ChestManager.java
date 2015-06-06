@@ -1,11 +1,14 @@
-package me.ecminer.infinitechests.chest;
+package me.ecminer.superchest.chest;
 
-import me.ecminer.infinitechests.InfiniteChests;
+import me.ecminer.superchest.SuperChest;
+import me.ecminer.superchest.utilities.BlockUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -15,12 +18,12 @@ import java.util.Map;
 
 public class ChestManager {
 
-    private final InfiniteChests plugin;
+    private final SuperChest plugin;
     private Map<String, Map<Vector, Chest>> chests = new HashMap<String, Map<Vector, Chest>>();
     private Map<String, Chest> openChest = new HashMap<String, Chest>();
     private Map<String, ChestPage> openPage = new HashMap<String, ChestPage>();
 
-    public ChestManager(InfiniteChests plugin) {
+    public ChestManager(SuperChest plugin) {
         this.plugin = plugin;
     }
 
@@ -64,6 +67,28 @@ public class ChestManager {
     public void chestClosed(Player player) {
         openChest.remove(player.getName());
         openPage.remove(player.getName());
+    }
+
+    public void destroyChest(Chest chest) {
+        for (ChestPage page : chest.getInventory().getPages()) {
+            for (HumanEntity viewer : (HumanEntity[]) page
+                    .getInventory()
+                    .getViewers()
+                    .toArray(
+                            new HumanEntity[page.getInventory().getViewers()
+                                    .size()])) {
+                viewer.closeInventory();
+            }
+            for (int i = 9; i < page.getInventory().getSize(); i++) {
+                ItemStack item = page.getInventory().getItem(i);
+                if (item != null)
+                    BlockUtils.dropItem(chest.getLocation(), item);
+            }
+        }
+        if (chests.containsKey(chest.getWorldName())) {
+            chests.get(chest.getWorldName()).remove(chest.getLocationVector());
+        }
+        plugin.getChestSaver().destroyChest(chest);
     }
 
     public boolean hasOpenedChest(Player player) {

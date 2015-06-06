@@ -1,4 +1,4 @@
-package me.ecminer.infinitechests.chest;
+package me.ecminer.superchest.chest;
 
 import org.bukkit.Bukkit;
 import org.bukkit.inventory.Inventory;

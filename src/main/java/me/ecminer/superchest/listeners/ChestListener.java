@@ -1,9 +1,10 @@
-package me.ecminer.infinitechests.listeners;
+package me.ecminer.superchest.listeners;
 
-import me.ecminer.infinitechests.InfiniteChests;
-import me.ecminer.infinitechests.chest.Chest;
-import me.ecminer.infinitechests.chest.ChestItems;
-import me.ecminer.infinitechests.chest.ChestPage;
+import me.ecminer.superchest.SuperChest;
+import me.ecminer.superchest.chest.Chest;
+import me.ecminer.superchest.chest.ChestItems;
+import me.ecminer.superchest.chest.ChestPage;
+import me.ecminer.superchest.utilities.BlockUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -16,41 +17,80 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.world.WorldSaveEvent;
-
-import java.util.Arrays;
-import java.util.List;
+import org.bukkit.inventory.ItemStack;
 
 public class ChestListener implements Listener {
 
     private final BlockFace[] blockFaces = new BlockFace[]{BlockFace.NORTH, BlockFace.SOUTH, BlockFace.WEST, BlockFace.EAST};
     private final byte[] requiredData = new byte[]{2, 3, 4, 5};
-    private InfiniteChests plugin;
+    private SuperChest plugin;
 
-    public ChestListener(InfiniteChests plugin) {
+    public ChestListener(SuperChest plugin) {
         this.plugin = plugin;
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onSignChange(SignChangeEvent evt) {
         if (!evt.isCancelled()) {
+            Player player = evt.getPlayer();
             Sign sign = (Sign) evt.getBlock().getState();
             if (evt.getLine(0).equals("[SuperChest]") && evt.getLine(1).isEmpty() && evt.getLine(2).isEmpty() && evt.getLine(3).isEmpty()) {
-                for (int i = 0; i < blockFaces.length; i++) {
-                    Block relative = evt.getBlock().getRelative(blockFaces[i].getOppositeFace());
-                    if (isSuperChest(relative) || plugin.getChestManager().isChest(relative)) {
-                        evt.setCancelled(true);
-                        evt.getPlayer().sendMessage(ChatColor.RED + "This chest is already a SuperChest!");
-                        return;
+                if (player.hasPermission(SuperChest.placeSuperChest)) {
+                    for (int i = 0; i < blockFaces.length; i++) {
+                        Block relative = evt.getBlock().getRelative(blockFaces[i].getOppositeFace());
+                        if (isSuperChest(relative) || plugin.getChestManager().isChest(relative)) {
+                            evt.setLine(0, "");
+                            evt.setCancelled(true);
+                            player.sendMessage(ChatColor.RED + "This chest is already a SuperChest!");
+                            return;
+                        }
+                        if (relative.getType() == Material.CHEST && sign.getData().getData() == requiredData[i]) {
+                            if (!BlockUtils.isDoubleChest(relative)) {
+                                plugin.getChestSaver().destroyChest(relative);
+                                plugin.getChestManager().placeChest(relative);
+                                Chest chest = plugin.getChestManager().getChest(relative);
+                                for (ItemStack item : ((org.bukkit.block.Chest) relative.getState()).getInventory().getContents()) {
+                                    if (item != null) {
+                                        chest.getInventory().getPage(0).getInventory().addItem(item);
+                                    }
+                                }
+                                ((org.bukkit.block.Chest) relative.getState()).getInventory().clear();
+                                player.sendMessage(ChatColor.GREEN + "You created a SuperChest!");
+                                return;
+                            } else {
+                                evt.setLine(0, "");
+                                player.sendMessage(ChatColor.RED + "You can't create a SuperChest on a double chest! Make sure you place the sign on a single chest.");
+                                return;
+                            }
+                        }
                     }
-                    if (relative.getType() == Material.CHEST && sign.getData().getData() == requiredData[i]) {
-                        plugin.getChestManager().placeChest(evt.getBlock());
-                        evt.getPlayer().sendMessage(ChatColor.GREEN + "Placed!");
+                } else {
+                    player.sendMessage(ChatColor.RED + "You don't have the right permission to create a SuperChest!");
+                }
+                evt.setLine(0, "");
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onBlockPlace(BlockPlaceEvent evt) {
+        if (!evt.isCancelled()) {
+            Player player = evt.getPlayer();
+            if (evt.getBlockPlaced().getType() == Material.CHEST) {
+                Block block = evt.getBlockPlaced();
+                for (BlockFace face : blockFaces) {
+                    Block block1 = block.getRelative(face);
+                    if (block1.getType() == Material.CHEST && (plugin.getChestManager().isChest(block1) || isSuperChest(block1))) {
+                        evt.setCancelled(true);
+                        player.sendMessage(ChatColor.RED + "You are trying to place a chest next to a SuperChest! A SuperChest can only be a single chest block!");
                         return;
                     }
                 }
@@ -59,12 +99,48 @@ public class ChestListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
+    public void onBlockBreak(BlockBreakEvent evt) {
+        Player player = evt.getPlayer();
+        final Block block = evt.getBlock();
+        if (!evt.isCancelled())
+            if (block.getType() == Material.WALL_SIGN) {
+                Sign sign = (Sign) block.getState();
+                for (BlockFace face : blockFaces) {
+                    final Block relative = block.getRelative(face);
+                    if (plugin.getChestManager().isChest(relative) || isSuperChest(relative)) {
+                        evt.setCancelled(true);
+                        return;
+                    }
+                }
+            } else if (block.getType() == Material.CHEST) {
+                if ((plugin.getChestManager().isChest(block) || isSuperChest(block)) && !player.hasPermission(SuperChest.breakSuperChest)) {
+                    player.sendMessage(ChatColor.RED + "You don't have the right permissions to break a SuperChest!");
+                    return;
+                }
+                if (plugin.getChestManager().isChest(block)) {
+                    Chest chest = plugin.getChestManager().getChest(block);
+                    plugin.getChestManager().destroyChest(chest);
+                    return;
+                } else if (isSuperChest(block)) {
+                    final Chest chest = plugin.getChestManager().placeChest(block);
+                    plugin.getChestSaver().loadChest(chest, new Runnable() {
+                        public void run() {
+                            plugin.getChestManager().destroyChest(chest);
+                        }
+                    });
+                    return;
+                }
+            }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerInteract(PlayerInteractEvent evt) {
         if (!evt.isCancelled()) {
             if (evt.getAction() == Action.RIGHT_CLICK_BLOCK
                     && evt.getClickedBlock().getType() == Material.CHEST) {
-                if (evt.getPlayer().isSneaking() && evt.getItem() != null)
+                if (evt.getPlayer().isSneaking() && evt.getItem() != null) {
                     return;
+                }
                 if (plugin.getChestManager().isChest(evt.getClickedBlock())) {
                     Chest chest = plugin.getChestManager().getChest(
                             evt.getClickedBlock());
@@ -140,7 +216,7 @@ public class ChestListener implements Listener {
                                 }
                             } else if (evt.getCurrentItem().isSimilar(ChestItems.newPage)) {
                                 page.getInventory().setItem(8, ChestItems.nextPage);
-                                chest.getInventory().addPage(new ChestPage("Chest"));
+                                chest.getInventory().addPage(new ChestPage("Super Chest"));
                                 chest.setIsEdited(true);
                             } else if (evt.getCurrentItem().isSimilar(ChestItems.destroyPage)) {
                                 chest.getInventory().destroyPage(page);
